@@ -124,7 +124,10 @@ function portable_control_network_feedback_deck()
     )
 end
 
-function portable_snapshot_test_metadata(; profile = :portable_full)
+function portable_snapshot_test_metadata(;
+    profile = :portable_full,
+    minimum_reader_version = "1.1",
+)
     return AIMORA.PortableSnapshots.PortableSnapshotMetadata(
         profile,
         bytes2hex(sha256("project")),
@@ -137,6 +140,7 @@ function portable_snapshot_test_metadata(; profile = :portable_full)
         "AIMORA-authored synthetic portable snapshot test";
         writer_version = "AIMORA.jl/test",
         creator_platform = "portable-test-platform",
+        minimum_reader_version,
     )
 end
 
@@ -292,6 +296,17 @@ end
     @test descriptor.metadata.numeric_profile ==
         "ieee754_binary64_finite_preserve_signed_zero"
     @test descriptor.metadata.compression == "none"
+    @test descriptor.metadata.minimum_reader_version == "1.1"
+
+    incompatible_reader_snapshot = AIMORA.PortableSnapshots.PortableEMTSnapshot(
+        portable_snapshot_test_metadata(minimum_reader_version = "1.0"),
+        [public_section],
+    )
+    incompatible_reader = portable_snapshot_caught_failure() do
+        AIMORA.PortableSnapshots.portable_snapshot_bytes(incompatible_reader_snapshot)
+    end
+    @test incompatible_reader isa AIMORA.PortableSnapshots.PortableSnapshotFailure
+    @test incompatible_reader.code == :reader_version_mismatch
 
     mktempdir() do directory
         first_path = joinpath(directory, "first.aimora-snapshot")
@@ -520,6 +535,7 @@ end
         )
         @test legacy_descriptor.schema_minor == 0
         @test legacy_descriptor.migration_path == ["aimora.portable_emt.1.0_to_1.1"]
+        @test legacy_descriptor.metadata.minimum_reader_version == "1.1"
         migrated = AIMORA.PortableSnapshots.read_portable_emt_snapshot(
             legacy_path;
             allow_private = true,

@@ -2023,6 +2023,27 @@ function _sync_saturated_transformer_nonlinear_slope_branches!(
     return (matched_count = matched_count, mutation_count = mutation_count)
 end
 
+function _execute_nonlinear_nodal_step_solver(
+    nonlinear_nodal_step_solver,
+    context,
+    current_injections,
+    source_voltage_constraint_result,
+)
+    applicable(
+        nonlinear_nodal_step_solver,
+        context,
+        current_injections,
+        source_voltage_constraint_result,
+    ) || throw(ArgumentError(
+        "nonlinear nodal step solver must be callable with the EMT context, current injections, and source-voltage constraints",
+    ))
+    return nonlinear_nodal_step_solver(
+        context,
+        current_injections,
+        source_voltage_constraint_result,
+    )
+end
+
 function step_with_over16_boundary!(
     context::EMTStepContext,
     over16_state::OVER16AcceptedTimestepState;
@@ -2321,7 +2342,8 @@ function step_with_over16_boundary!(
     voltage_max_before_solve = maximum(abs, context.system.v; init = 0.0)
     voltage =
         nonlinear_nodal_step_solver !== nothing ?
-        nonlinear_nodal_step_solver(
+        _execute_nonlinear_nodal_step_solver(
+            nonlinear_nodal_step_solver,
             context,
             current_injections,
             source_voltage_constraint_result,

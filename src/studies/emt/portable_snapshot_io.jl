@@ -273,7 +273,7 @@ struct PortableSnapshotMetadata
         creator_platform::AbstractString = "$(Sys.KERNEL)/$(Sys.ARCH)/Julia-$(VERSION)",
         numeric_profile::AbstractString = "ieee754_binary64_finite_preserve_signed_zero",
         compression::AbstractString = "none",
-        minimum_reader_version::AbstractString = "1.0",
+        minimum_reader_version::AbstractString = "1.1",
     )
         profile in (:portable_full, :portable_public_reference) ||
             _portable_snapshot_fail(:unsupported_profile, "portable snapshot profile is unsupported")
@@ -855,6 +855,11 @@ function _metadata_record(
         :unsupported_minor_version,
         "portable snapshot metadata minor version is unsupported",
     )
+    schema_minor >= 1 && metadata.minimum_reader_version != "1.1" &&
+        _portable_snapshot_fail(
+            :reader_version_mismatch,
+            "portable snapshot schema 1.1 requires minimum reader version 1.1",
+        )
     fields = Pair{String,Any}[
         "accepted_step" => metadata.accepted_step,
         "capabilities" => metadata.capabilities,
@@ -937,7 +942,7 @@ function _metadata_from_record(record::PortableSnapshotRecord, schema_minor::UIn
             "ieee754_binary64_finite_preserve_signed_zero",
         ),
         compression = get(fields, "compression", "none"),
-        minimum_reader_version = get(fields, "minimum_reader_version", "1.0"),
+        minimum_reader_version = get(fields, "minimum_reader_version", "1.1"),
     )
 end
 
