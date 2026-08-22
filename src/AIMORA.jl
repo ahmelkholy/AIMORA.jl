@@ -1,6 +1,7 @@
 module AIMORA
 
 include("solver_api/backend.jl")
+include("studies/emt/portable_snapshot_io.jl")
 
 # Public, dependency-light engineering core.
 include("core/study.jl")
@@ -22,6 +23,7 @@ include("models/transformer_apparatus.jl")
 include("models/modern_machines.jl")
 include("models/measurement_chains.jl")
 include("studies/emt/task_platform_contracts.jl")
+include("studies/emt/local_partition_contracts.jl")
 include("io/transformer_parameter_input.jl")
 include("studies/transformer_parameters.jl")
 include("io/transformer_parameter_report.jl")

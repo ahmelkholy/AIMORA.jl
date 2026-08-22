@@ -2,6 +2,8 @@ module EMTStudy
 using Printf
 using SHA
 using Serialization
+using Unicode
+using ..PortableSnapshots
 using ..Sources: AnalyticSourceSignal
 
 include(joinpath(@__DIR__, "emt", "source_signal_program.jl"))
@@ -30,6 +32,11 @@ include(joinpath(@__DIR__, "emt", "control_frequency_initialization.jl"))
 include(joinpath(@__DIR__, "emt", "control_device_execution.jl"))
 include(joinpath(@__DIR__, "emt", "ensemble_execution.jl"))
 include(joinpath(@__DIR__, "emt", "checkpoint_io.jl"))
+include(joinpath(@__DIR__, "emt", "portable_workspace_snapshot.jl"))
+include(joinpath(@__DIR__, "emt", "portable_nodal_element_snapshot.jl"))
+include(joinpath(@__DIR__, "emt", "portable_control_snapshot.jl"))
+include(joinpath(@__DIR__, "emt", "portable_task_scheduler_snapshot.jl"))
+include(joinpath(@__DIR__, "emt", "portable_hybrid_snapshot.jl"))
 include(joinpath(@__DIR__, "emt", "restart_execution.jl"))
 include(joinpath(@__DIR__, "emt", "deck_timestep_orchestration.jl"))
 include(joinpath(@__DIR__, "emt", "case_sequence_execution.jl"))

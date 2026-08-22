@@ -1636,6 +1636,50 @@ function EMTStepTransaction(workspace::EMTStudyWorkspace)
     return EMTStepTransaction(runtime, TimestepTransaction(runtime))
 end
 
+function initialize_partitioned_emt_workspace!(
+    workspace::EMTStudyWorkspace;
+    execution_mode::Symbol=:partitioned_waveform,
+)
+    workspace.ready || throw(ArgumentError(
+        "EMT partition region must begin from an unclaimed prepared workspace",
+    ))
+    workspace.execution_mode === :unselected || throw(ArgumentError(
+        "EMT partition region workspace is already owned by $(workspace.execution_mode) execution",
+    ))
+    runtime = workspace.runtime
+    context = runtime.context
+    context.step_index == 0 && context.t_s == 0.0 || throw(ArgumentError(
+        "EMT partition region must begin at its prepared time-zero boundary",
+    ))
+    context.step_count > 0 || throw(ArgumentError(
+        "EMT partition region requires at least one physical timestep",
+    ))
+    _apply_due_series_rlc_alterations!(context)
+    if runtime.steady_state_initial_sample === nothing
+        record_step!(context, copy(context.system.v))
+    else
+        _apply_steady_state_initial_sample!(
+            context,
+            runtime.steady_state_initial_sample,
+            runtime.steady_state_initial_output_values,
+        )
+        context.step_index = 1
+        context.t_s = context.dt_s
+    end
+    execution_mode in (
+        :monolithic,
+        :local_subcycling,
+        :partitioned_lagged,
+        :partitioned_waveform,
+        :combined_local_partitioned,
+    ) || throw(ArgumentError(
+        "EMT partition region execution mode is unsupported",
+    ))
+    workspace.execution_mode = execution_mode
+    workspace.ready = false
+    return workspace
+end
+
 function begin_emt_step_transaction!(transaction::EMTStepTransaction)
     begin_timestep_transaction!(transaction.transaction)
     return transaction

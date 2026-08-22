@@ -597,6 +597,9 @@ function configure_emt_hybrid_execution(
     workspace.ready || throw(ArgumentError(
         "EMT study workspace must be ready before configuring hybrid execution",
     ))
+    workspace.execution_mode === :unselected || throw(ArgumentError(
+        "EMT study workspace is already owned by $(workspace.execution_mode) execution",
+    ))
     runtime = _check_prepared_runtime_aliases(workspace.runtime)
     nominal_dt = runtime.context.dt_s
     nominal_dt > 0.0 && isfinite(nominal_dt) || throw(ArgumentError(
@@ -623,7 +626,7 @@ function configure_emt_hybrid_execution(
         ))
         scheduler
     end
-    return EMTHybridStepIntegrator(
+    integrator = EMTHybridStepIntegrator(
         workspace,
         EMTHybridCallbackOwner(runtime),
         EMTStepTransaction(workspace),
@@ -645,6 +648,8 @@ function configure_emt_hybrid_execution(
         0,
         nothing,
     )
+    workspace.execution_mode = :hybrid
+    return integrator
 end
 
 function _emt_hybrid_initialize!(integrator::EMTHybridStepIntegrator)

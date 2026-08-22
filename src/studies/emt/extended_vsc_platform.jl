@@ -7,11 +7,24 @@ export ExtendedVSCBoundaryOccurrence,
        run_extended_vsc!,
        extended_vsc_trace,
        simulate_extended_vsc,
+       extended_vsc_task_program_signature_sha256,
        write_extended_vsc_checkpoint,
        read_extended_vsc_checkpoint
 
 const _EXTENDED_VSC_CHECKPOINT_MAGIC = collect(codeunits("AIMORA-EXTENDED-VSC"))
 const _EXTENDED_VSC_CHECKPOINT_SCHEMA = UInt32(1)
+const _EXTENDED_VSC_TASK_PROGRAM_SIGNATURE_SHA256 = bytes2hex(sha256(codeunits(join((
+    "aimora.extended_vsc.task_program.v1",
+    "protection:ExtendedVSCProtectionTask",
+    "dispatch:ExtendedVSCDispatchTask",
+    "measurement:ExtendedVSCMeasurementTask",
+    "control:ExtendedVSCControlReader+ExtendedVSCControlComputer+ExtendedVSCControlWriter",
+    "pwm:ExtendedVSCDutyReader+ExtendedVSCGateWriter",
+), '\n'))))
+
+"""Return the stable callback-program identity required by portable scheduler state."""
+extended_vsc_task_program_signature_sha256() =
+    _EXTENDED_VSC_TASK_PROGRAM_SIGNATURE_SHA256
 
 struct ExtendedVSCNodeLayout
     dc_positive::Int

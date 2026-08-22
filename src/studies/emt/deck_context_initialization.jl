@@ -3596,6 +3596,11 @@ end
 _deck_has_dynamic_distributed_line(parsed::DeckParser.DeckParseResult) =
     !isempty(DeckParser.deck_distributed_transposed_line_modal_branch_states(parsed))
 
+_deck_has_frequency_dependent_line_runtime(parsed::DeckParser.DeckParseResult) =
+    !isempty(DeckParser.deck_sampled_frequency_line_rows(parsed)) ||
+    !isempty(DeckParser.deck_semlyen_line_groups(parsed)) ||
+    !isempty(DeckParser.deck_rational_frequency_line_groups(parsed))
+
 function _primary_dynamic_timestep_state(
     node_count::Integer,
     dt_s::Real,

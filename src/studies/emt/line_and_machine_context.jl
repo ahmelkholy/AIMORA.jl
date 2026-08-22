@@ -2034,6 +2034,15 @@ function step_with_over16_boundary!(
     step_before = context.step_index
     t_before = context.t_s
     raw_over16_kwargs = (; over16_kwargs...)
+    nonlinear_nodal_step_solver = get(
+        raw_over16_kwargs,
+        :nonlinear_nodal_step_solver,
+        nothing,
+    )
+    raw_over16_kwargs = Base.structdiff(
+        raw_over16_kwargs,
+        (nonlinear_nodal_step_solver = nothing,),
+    )
     hybrid_substep = get(raw_over16_kwargs, :hybrid_substep, false)
     raw_over16_kwargs = Base.structdiff(
         raw_over16_kwargs,
@@ -2311,6 +2320,12 @@ function step_with_over16_boundary!(
         current_extinction_enabled(context.system.elements)
     voltage_max_before_solve = maximum(abs, context.system.v; init = 0.0)
     voltage =
+        nonlinear_nodal_step_solver !== nothing ?
+        nonlinear_nodal_step_solver(
+            context,
+            current_injections,
+            source_voltage_constraint_result,
+        ) :
         sparse_node_group_enabled ?
         solve_step_with_sparse_node_groups!(
             context.system,

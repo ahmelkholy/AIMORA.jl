@@ -1949,6 +1949,21 @@ function _deck_requested_electrical_trace(
         trace_output_is_public(element) || continue
         trace_output_channel_names!(output_names, element_name, element)
     end
+    frequency_dependent_line_names = vcat(
+        DeckParser.deck_sampled_frequency_line_element_names(parsed),
+        DeckParser.deck_semlyen_line_element_names(parsed),
+        DeckParser.deck_rational_frequency_line_element_names(parsed),
+    )
+    for element_name in frequency_dependent_line_names
+        channel_prefix = string(element_name, '_')
+        append!(
+            output_names,
+            (
+                channel for channel in trace.output_channel_names
+                if startswith(String(channel), channel_prefix)
+            ),
+        )
+    end
     append!(output_names, _deck_requested_electrical_output_names(parsed))
     unique!(output_names)
     output_indices = Int[]
@@ -2302,7 +2317,8 @@ function _run_deck_emt(
         distributed_transposed_line_runtime_enabled &&
         (
             _deck_has_dynamic_distributed_line(parsed) ||
-            !isempty(DeckParser.deck_bergeron_line_rows(parsed))
+            !isempty(DeckParser.deck_bergeron_line_rows(parsed)) ||
+            _deck_has_frequency_dependent_line_runtime(parsed)
         ) ||
         saturated_transformer_dynamic_runtime ||
         ideal_transformer_source_runtime ||
@@ -2535,6 +2551,7 @@ function prepare_emt_study(
     time_horizon::Symbol = :arguments,
     output_schedule::Symbol = :all_steps,
     source_signal_provider::AbstractSourceSignalProvider = IdentitySourceSignalProvider(),
+    external_current_injection_provider = nothing,
 )
     parsed = deepcopy(parsed)
     time_horizon in (:arguments, :deck) ||
@@ -2581,7 +2598,8 @@ function prepare_emt_study(
         distributed_transposed_line_runtime_enabled &&
         (
             _deck_has_dynamic_distributed_line(parsed) ||
-            !isempty(DeckParser.deck_bergeron_line_rows(parsed))
+            !isempty(DeckParser.deck_bergeron_line_rows(parsed)) ||
+            _deck_has_frequency_dependent_line_runtime(parsed)
         ) ||
         saturated_transformer_dynamic_runtime ||
         ideal_transformer_source_runtime ||
@@ -2593,7 +2611,8 @@ function prepare_emt_study(
             parsed.elements,
         ) ||
         !isempty(series_rlc_alterations) ||
-        initial_voltage_sample !== nothing
+        initial_voltage_sample !== nothing ||
+        external_current_injection_provider !== nothing
     dynamic_network_runtime || throw(ArgumentError(
         "prepared EMT execution currently requires the production dynamic network runtime",
     ))
@@ -2632,6 +2651,7 @@ function prepare_emt_study(
         series_rlc_alterations = series_rlc_alterations,
         store_step_updates = _deck_uses_dynamic_nonlinear_runtime(parsed),
         source_signal_provider = source_signal_provider,
+        over16_step_configs = external_current_injection_provider,
     )
     return PreparedEMTStudy(runtime, parsed)
 end
@@ -2844,6 +2864,7 @@ function EMTStudyWorkspace(prepared::PreparedEMTStudy{R,P}) where {R,P}
         0,
         0,
         true,
+        :unselected,
         TimestepStateRestorer(),
     )
 end
@@ -2860,6 +2881,7 @@ function reset_emt_study!(
     workspace.parsed = prepared.parsed
     workspace.reset_count += 1
     workspace.ready = true
+    workspace.execution_mode = :unselected
     return workspace
 end
 
@@ -3249,6 +3271,10 @@ function evaluate_emt_study!(workspace::EMTStudyWorkspace)
     workspace.ready || throw(ArgumentError(
         "EMT study workspace must be reset before another evaluation",
     ))
+    workspace.execution_mode === :unselected || throw(ArgumentError(
+        "EMT study workspace is already owned by $(workspace.execution_mode) execution",
+    ))
+    workspace.execution_mode = :monolithic
     workspace.ready = false
     boundary_run = _run_prepared_dynamic_deck!(workspace.runtime)
     requested_trace =

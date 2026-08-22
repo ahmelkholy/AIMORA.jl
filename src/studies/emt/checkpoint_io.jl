@@ -52,6 +52,11 @@ function _emt_checkpoint_topology_fingerprint(workspace::EMTStudyWorkspace)
 end
 
 function _validate_emt_checkpoint_workspace(workspace::EMTStudyWorkspace)
+    workspace.execution_mode === :monolithic || throw(ArgumentError(
+        workspace.execution_mode === :hybrid ?
+        "local trusted EMT checkpoints cannot capture hybrid execution without its coordinating integrator; use a portable hybrid snapshot" :
+        "local trusted EMT checkpoints require a completed monolithic execution",
+    ))
     workspace.ready && throw(ArgumentError(
         "EMT checkpoint requires an evaluated workspace",
     ))

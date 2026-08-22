@@ -8,10 +8,12 @@ include("native_extensions.jl")
 include("coupled_line_fitting.jl")
 include("coupled_line_runtime.jl")
 include("emt_task_platform.jl")
+include("emt_partitioning.jl")
 include("extended_vsc_control_filter_platform.jl")
 include("transformer_apparatus.jl")
 include("modern_machine_families.jl")
 include("measurement_chains.jl")
+include("portable_emt_snapshots.jl")
 
 @testset "public package isolation" begin
     for module_name in (

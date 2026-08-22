@@ -4,11 +4,17 @@ export AbstractAIMORASolverBackend,
        activate_solver!,
        active_solver_backend,
        backend_metadata,
+       advance_partitioned_emt!,
        execute_study!,
+       execute_partitioned_emt!,
        materialize_measurement_branches,
+       partitioned_emt_checkpoint,
+       partitioned_emt_status,
        prepare_line_fit,
+       prepare_partitioned_emt,
        prepare_study,
        require_solver,
+       restore_partitioned_emt_checkpoint!,
        restore_backend_state!,
        snapshot_backend_state,
        solver_available,
@@ -183,6 +189,51 @@ restore_backend_state!(::AbstractAIMORASolverBackend, runtime, snapshot) =
         message = "The active backend does not implement runtime restoration.",
     )
 
+prepare_partitioned_emt(::AbstractAIMORASolverBackend, study) =
+    _solver_unavailable_result(
+        :prepare_partitioned_emt,
+        :local_multirate_partitioned_emt;
+        message = "The active backend does not implement partitioned EMT preparation.",
+    )
+
+advance_partitioned_emt!(::AbstractAIMORASolverBackend, prepared) =
+    _solver_unavailable_result(
+        :advance_partitioned_emt,
+        :local_multirate_partitioned_emt;
+        message = "The active backend does not implement partitioned EMT advancement.",
+    )
+
+execute_partitioned_emt!(::AbstractAIMORASolverBackend, prepared) =
+    _solver_unavailable_result(
+        :execute_partitioned_emt,
+        :local_multirate_partitioned_emt;
+        message = "The active backend does not implement partitioned EMT execution.",
+    )
+
+partitioned_emt_checkpoint(::AbstractAIMORASolverBackend, prepared) =
+    _solver_unavailable_result(
+        :partitioned_emt_checkpoint,
+        :local_multirate_partitioned_emt;
+        message = "The active backend does not implement partitioned EMT checkpoints.",
+    )
+
+restore_partitioned_emt_checkpoint!(
+    ::AbstractAIMORASolverBackend,
+    prepared,
+    checkpoint,
+) = _solver_unavailable_result(
+    :restore_partitioned_emt_checkpoint,
+    :local_multirate_partitioned_emt;
+    message = "The active backend does not implement partitioned EMT restoration.",
+)
+
+partitioned_emt_status(::AbstractAIMORASolverBackend, prepared) =
+    _solver_unavailable_result(
+        :partitioned_emt_status,
+        :local_multirate_partitioned_emt;
+        message = "The active backend does not implement partitioned EMT status.",
+    )
+
 function prepare_study(project, study)
     backend = active_solver_backend()
     return backend === nothing ?
@@ -225,4 +276,58 @@ function restore_backend_state!(runtime, snapshot)
     return backend === nothing ?
            _solver_unavailable_result(:restore_backend_state, :backend_snapshot) :
            restore_backend_state!(backend, runtime, snapshot)
+end
+
+function prepare_partitioned_emt(study)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :prepare_partitioned_emt,
+        :local_multirate_partitioned_emt,
+    ) : prepare_partitioned_emt(backend, study)
+end
+
+function advance_partitioned_emt!(prepared)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :advance_partitioned_emt,
+        :local_multirate_partitioned_emt,
+    ) : advance_partitioned_emt!(backend, prepared)
+end
+
+function execute_partitioned_emt!(prepared)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :execute_partitioned_emt,
+        :local_multirate_partitioned_emt,
+    ) : execute_partitioned_emt!(backend, prepared)
+end
+
+function partitioned_emt_checkpoint(prepared)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :partitioned_emt_checkpoint,
+        :local_multirate_partitioned_emt,
+    ) : partitioned_emt_checkpoint(backend, prepared)
+end
+
+function restore_partitioned_emt_checkpoint!(prepared, checkpoint)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :restore_partitioned_emt_checkpoint,
+        :local_multirate_partitioned_emt,
+    ) : restore_partitioned_emt_checkpoint!(backend, prepared, checkpoint)
+end
+
+function partitioned_emt_status(prepared)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :partitioned_emt_status,
+        :local_multirate_partitioned_emt,
+    ) : partitioned_emt_status(backend, prepared)
 end

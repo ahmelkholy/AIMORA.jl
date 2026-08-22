@@ -567,6 +567,9 @@ function restart_emt_study!(
     workspace.ready && throw(ArgumentError(
         "restart requires an evaluated EMT workspace checkpoint",
     ))
+    workspace.execution_mode === :monolithic || throw(ArgumentError(
+        "monolithic restart requires a monolithic EMT workspace checkpoint",
+    ))
     context = workspace.runtime.context
     checkpoint_step = context.step_count
     checkpoint_time_s = checkpoint_step * context.dt_s
