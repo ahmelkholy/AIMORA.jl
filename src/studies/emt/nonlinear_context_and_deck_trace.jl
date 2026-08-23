@@ -1628,12 +1628,40 @@ struct EMTStepTransaction{R,T}
     transaction::T
 end
 
-function EMTStepTransaction(workspace::EMTStudyWorkspace)
+function _restore_prepared_dynamic_deck_runtime!(
+    destination::PreparedDynamicDeckRuntime,
+    source::PreparedDynamicDeckRuntime,
+    restorer::TimestepStateRestorer,
+)
+    restore_timestep_state!(destination.context, source.context, restorer)
+    restore_timestep_state!(
+        destination.timestep_state,
+        source.timestep_state,
+        restorer,
+    )
+    restore_timestep_state!(
+        destination.step_configs,
+        source.step_configs,
+        restorer,
+    )
+    return destination
+end
+
+function EMTStepTransaction(
+    workspace::EMTStudyWorkspace;
+    stable_structure::Bool=false,
+)
     workspace.ready || throw(ArgumentError(
         "EMT study workspace must be ready before creating a step transaction",
     ))
     runtime = _check_prepared_runtime_aliases(workspace.runtime)
-    return EMTStepTransaction(runtime, TimestepTransaction(runtime))
+    transaction = stable_structure ?
+        StableStructureTimestepTransaction(
+            runtime,
+            _restore_prepared_dynamic_deck_runtime!,
+        ) :
+        TimestepTransaction(runtime)
+    return EMTStepTransaction(runtime, transaction)
 end
 
 function initialize_partitioned_emt_workspace!(
