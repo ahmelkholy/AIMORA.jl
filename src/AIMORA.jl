@@ -2,6 +2,7 @@ module AIMORA
 
 include("solver_api/backend.jl")
 include("studies/emt/portable_snapshot_io.jl")
+include("studies/emt/dassl_class_contracts.jl")
 
 # Public, dependency-light engineering core.
 include("core/study.jl")
