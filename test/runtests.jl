@@ -15,6 +15,7 @@ include("extended_vsc_control_filter_platform.jl")
 include("transformer_apparatus.jl")
 include("modern_machine_families.jl")
 include("measurement_chains.jl")
+include("protection_platform.jl")
 include("portable_emt_snapshots.jl")
 
 @testset "public package isolation" begin
@@ -46,6 +47,14 @@ end
         @test measurement_unavailable.operation == :materialize_measurement_branches
         @test measurement_unavailable.required_capability ==
             :measurement_network_materialization
+        breaker_unavailable = AIMORA.materialize_emt_breaker_poles(
+            nothing,
+            nothing,
+            ((1, 2), (3, 4), (5, 6)),
+        )
+        @test breaker_unavailable isa AIMORA.SolverUnavailableResult
+        @test breaker_unavailable.operation == :materialize_emt_breaker_poles
+        @test breaker_unavailable.required_capability == :emt_protection_breaker
     end
 end
 

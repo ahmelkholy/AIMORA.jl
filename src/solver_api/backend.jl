@@ -7,7 +7,10 @@ export AbstractAIMORASolverBackend,
        advance_partitioned_emt!,
        execute_study!,
        execute_partitioned_emt!,
+       materialize_emt_breaker_poles,
        materialize_measurement_branches,
+       prepare_protection_task_pipeline,
+       advance_protection_task_pipeline!,
        partitioned_emt_checkpoint,
        partitioned_emt_status,
        prepare_line_fit,
@@ -168,6 +171,31 @@ materialize_measurement_branches(::AbstractAIMORASolverBackend, definitions) =
         message = "The active backend does not implement measurement-network branches.",
     )
 
+materialize_emt_breaker_poles(
+    ::AbstractAIMORASolverBackend,
+    runtime,
+    specification,
+    terminal_nodes,
+) = _solver_unavailable_result(
+    :materialize_emt_breaker_poles,
+    :emt_protection_breaker;
+    message = "The active backend does not implement physical EMT breaker poles.",
+)
+
+prepare_protection_task_pipeline(::AbstractAIMORASolverBackend, pipeline) =
+    _solver_unavailable_result(
+        :prepare_protection_task_pipeline,
+        :emt_protection_breaker;
+        message = "The active backend does not implement exact protection-task dispatch.",
+    )
+
+advance_protection_task_pipeline!(::AbstractAIMORASolverBackend, prepared, instant) =
+    _solver_unavailable_result(
+        :advance_protection_task_pipeline,
+        :emt_protection_breaker;
+        message = "The active backend does not implement exact protection-task dispatch.",
+    )
+
 prepare_line_fit(::AbstractAIMORASolverBackend, request) =
     _solver_unavailable_result(
         :prepare_line_fit,
@@ -255,6 +283,38 @@ function materialize_measurement_branches(definitions)
         :materialize_measurement_branches,
         :measurement_network_materialization,
     ) : materialize_measurement_branches(backend, definitions)
+end
+
+function materialize_emt_breaker_poles(runtime, specification, terminal_nodes)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :materialize_emt_breaker_poles,
+        :emt_protection_breaker,
+    ) : materialize_emt_breaker_poles(
+        backend,
+        runtime,
+        specification,
+        terminal_nodes,
+    )
+end
+
+function prepare_protection_task_pipeline(pipeline)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :prepare_protection_task_pipeline,
+        :emt_protection_breaker,
+    ) : prepare_protection_task_pipeline(backend, pipeline)
+end
+
+function advance_protection_task_pipeline!(prepared, instant)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :advance_protection_task_pipeline,
+        :emt_protection_breaker,
+    ) : advance_protection_task_pipeline!(backend, prepared, instant)
 end
 
 function prepare_line_fit(request)
