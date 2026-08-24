@@ -4,7 +4,11 @@ using ..Branches
 using ..Switches: over16_a8sw_delayed_open_step,
                   over16_switch_tail_current_injection
 
-import ..Branches: EMTElement, stamp!, stamp_conductance!, update!
+import ..Branches: EMTElement,
+                   backward_euler_companion_supported,
+                   stamp!,
+                   stamp_conductance!,
+                   update!
 
 export TACSControlledSwitch,
        ControlledSwitchDelayedArcState,
@@ -164,6 +168,12 @@ controlled_switch_closed(s::TACSControlledSwitch)::Bool = s.closed
 
 controlled_switch_conductance(s::TACSControlledSwitch)::Float64 =
     controlled_switch_closed(s) ? s.on_conductance : s.off_conductance
+
+# The controlled switch stamps an instantaneous conductance and an analytic
+# delayed-arc source; neither history term changes its equation between the
+# trapezoidal and backward-Euler event substeps. Transaction rollback owns the
+# mutable calendar and tail state during localization probes.
+backward_euler_companion_supported(::TACSControlledSwitch) = true
 
 function sync_controlled_switch!(s::TACSControlledSwitch, dt_s::Real=0.0)
     dt = Float64(dt_s)

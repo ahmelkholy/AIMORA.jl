@@ -37,5 +37,6 @@ include("studies/power_flow.jl")
 include("studies/short_circuit.jl")
 include("studies/protection.jl")
 include("studies/arc_flash.jl")
+include("models/surge_insulation.jl")
 
 end

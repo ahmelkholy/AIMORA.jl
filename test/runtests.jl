@@ -16,6 +16,7 @@ include("transformer_apparatus.jl")
 include("modern_machine_families.jl")
 include("measurement_chains.jl")
 include("protection_platform.jl")
+include("surge_insulation.jl")
 include("portable_emt_snapshots.jl")
 
 @testset "public package isolation" begin
