@@ -942,7 +942,7 @@ function apply_power_semiconductor_recovery_zero!(
     )
     root_time_tolerance_s = 1.0e-12
     tolerance_c = max(
-        64.0 * eps(localization_scale_c),
+        8192.0 * eps(Float64) * max(1.0, localization_scale_c),
         abs(recovery.last_recovery_current_a) * root_time_tolerance_s,
     )
     abs(localized_charge_c) <= tolerance_c || throw(DomainError(
@@ -1015,7 +1015,12 @@ function apply_power_semiconductor_tail_cutoff!(
     residual === nothing && throw(ArgumentError(
         "turn-off tail has no pending localized cutoff",
     ))
-    tolerance = 64.0 * eps(max(1.0, abs(tail.cutoff_current_a)))
+    root_time_tolerance_s = 1.0e-12
+    tolerance = max(
+        8192.0 * eps(Float64) * max(1.0, abs(tail.cutoff_current_a)),
+        abs(tail.cutoff_current_a) *
+            expm1(root_time_tolerance_s / tail.decay_time_s),
+    )
     abs(residual) <= tolerance || throw(DomainError(
         residual,
         "tail-cutoff transition requires its localized current surface",

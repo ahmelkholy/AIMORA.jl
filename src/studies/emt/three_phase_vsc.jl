@@ -696,6 +696,18 @@ function _three_phase_vsc_topology_action(device, voltages)
         return nothing
     end
     driver = device.gate_driver
+    if driver === nothing
+        forward_threshold = max(
+            device.threshold_v,
+            device.forward_voltage_drop_v + device.holding_current / device.on_conductance,
+        )
+        residual = terminal_voltage - forward_threshold
+        residual > voltage_tolerance_v && return (
+            transition = :forward_turn_on,
+            residual,
+        )
+        return nothing
+    end
     if driver !== nothing && driver.applied_on
         residual = terminal_voltage -
             Nonlinear.power_semiconductor_forward_turn_on_voltage(device)

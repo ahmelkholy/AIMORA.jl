@@ -378,6 +378,28 @@ end
     @test tail.last_cutoff_time_s ≈ 1.0e-3 atol=1.0e-12
     @test !tail.active
     @test tail.current_a == 0.0
+
+    rounded_tail = AIMORA.Nonlinear.TurnOffTailFidelity(
+        1.0e-3;
+        cutoff_current_a=exp(-1.0),
+    )
+    rounded_tail.active = true
+    rounded_tail.current_a = 1.0
+    rounded_tail.initial_current_a = 1.0
+    rounded_tail.turn_off_time_s = 0.0
+    rounded_igbt = AIMORA.Nonlinear.IGBTSwitch(
+        1,
+        0;
+        extended_fidelity=AIMORA.Nonlinear.PowerSemiconductorExtendedFidelity(
+            turn_off_tail=rounded_tail,
+        ),
+    )
+    AIMORA.Nonlinear.apply_power_semiconductor_tail_cutoff!(
+        rounded_igbt,
+        1.0e-3 + 0.5e-12,
+    )
+    @test rounded_tail.cutoff_event_count == 1
+    @test !rounded_tail.active
 end
 
 @testset "physical event energy rollback and single retry deposition" begin

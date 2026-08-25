@@ -18,6 +18,7 @@ include("measurement_chains.jl")
 include("protection_platform.jl")
 include("surge_insulation.jl")
 include("portable_emt_snapshots.jl")
+include("converter_systems.jl")
 
 @testset "public package isolation" begin
     for module_name in (
@@ -56,6 +57,10 @@ end
         @test breaker_unavailable isa AIMORA.SolverUnavailableResult
         @test breaker_unavailable.operation == :materialize_emt_breaker_poles
         @test breaker_unavailable.required_capability == :emt_protection_breaker
+        converter_unavailable = AIMORA.prepare_converter_system(:average_buck_converter)
+        @test converter_unavailable isa AIMORA.SolverUnavailableResult
+        @test converter_unavailable.operation == :prepare_converter_system
+        @test converter_unavailable.required_capability == :extended_converter_systems
     end
 end
 

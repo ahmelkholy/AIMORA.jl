@@ -63,7 +63,8 @@ using ..Lines: distributed_transposed_line_modal_timestep_update!,
 using ..Nodal
 using ..NonlinearNetwork: NonlinearChatterDecision,
                           NonlinearNetworkScales,
-                          NonlinearSolveDiagnostics
+                          NonlinearSolveDiagnostics,
+                          NonlinearSolveOptions
 using ..NonlinearNodal: NonlinearNodalSystem,
                         advance_nonlinear_step!,
                         nonlinear_nodal_checkpoint,
@@ -126,6 +127,8 @@ using ..Nonlinear: SaturatedTransformerNonlinearArrays,
                    request_power_semiconductor_gate!,
                    request_power_semiconductor_bridge_pole!,
                    request_power_semiconductor_topology_gates!,
+                   block_power_semiconductor_topology!,
+                   restart_power_semiconductor_topology!,
                    power_semiconductor_bridge_switch,
                    power_semiconductor_bridge_topology_valves,
                    HysteresisLoopPreprocessResult,

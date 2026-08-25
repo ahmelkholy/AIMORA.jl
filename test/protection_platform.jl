@@ -846,9 +846,11 @@ end
     ]
     @test only(last(ordered_entries).spec.effects) === InvalidateEMTTopology
     @test length(pipeline.deterministic_signature_sha256) == 64
-    unavailable = AIMORA.prepare_protection_task_pipeline(pipeline)
-    @test unavailable isa AIMORA.SolverUnavailableResult
-    @test unavailable.required_capability == :emt_protection_breaker
+    if !AIMORA.solver_available()
+        unavailable = AIMORA.prepare_protection_task_pipeline(pipeline)
+        @test unavailable isa AIMORA.SolverUnavailableResult
+        @test unavailable.required_capability == :emt_protection_breaker
+    end
 end
 
 @testset "three-pole EMT breaker failure reclose and restart" begin
@@ -1247,10 +1249,14 @@ end
         output_ids=[:trip_command],
     )
     @test valid_study isa ProtectionStudyPreparation
-    backend_refusal = run_protection(valid_study)
-    @test backend_refusal isa ProtectionStudyRefusal
-    @test backend_refusal.code == :production_backend_unavailable
-    @test backend_refusal.last_accepted_tick == preparation.initial_tick
+    backend_result = run_protection(valid_study)
+    if AIMORA.solver_available()
+        @test backend_result isa ProtectionStudyResult
+    else
+        @test backend_result isa ProtectionStudyRefusal
+        @test backend_result.code == :production_backend_unavailable
+        @test backend_result.last_accepted_tick == preparation.initial_tick
+    end
 
     @test_throws UndefKeywordError ProtectionProductSpecification(
         :incomplete_line_protection,

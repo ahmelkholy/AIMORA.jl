@@ -3,10 +3,12 @@ export AbstractAIMORASolverBackend,
        SolverUnavailableResult,
        activate_solver!,
        active_solver_backend,
+       advance_converter_system!,
        backend_metadata,
        advance_partitioned_emt!,
        execute_study!,
        execute_partitioned_emt!,
+       execute_converter_system!,
        materialize_emt_breaker_poles,
        materialize_measurement_branches,
        prepare_protection_task_pipeline,
@@ -15,6 +17,7 @@ export AbstractAIMORASolverBackend,
        partitioned_emt_status,
        prepare_line_fit,
        prepare_partitioned_emt,
+       prepare_converter_system,
        prepare_study,
        require_solver,
        restore_partitioned_emt_checkpoint!,
@@ -262,6 +265,30 @@ partitioned_emt_status(::AbstractAIMORASolverBackend, prepared) =
         message = "The active backend does not implement partitioned EMT status.",
     )
 
+prepare_converter_system(::AbstractAIMORASolverBackend, study) =
+    _solver_unavailable_result(
+        :prepare_converter_system,
+        :extended_converter_systems;
+        message = "The active backend does not implement converter-system preparation.",
+    )
+
+advance_converter_system!(
+    ::AbstractAIMORASolverBackend,
+    prepared,
+    accepted_step_count::Integer=1,
+) = _solver_unavailable_result(
+    :advance_converter_system,
+    :extended_converter_systems;
+    message = "The active backend does not implement bounded converter-system advancement.",
+)
+
+execute_converter_system!(::AbstractAIMORASolverBackend, prepared) =
+    _solver_unavailable_result(
+        :execute_converter_system,
+        :extended_converter_systems;
+        message = "The active backend does not implement converter-system execution.",
+    )
+
 function prepare_study(project, study)
     backend = active_solver_backend()
     return backend === nothing ?
@@ -390,4 +417,31 @@ function partitioned_emt_status(prepared)
         :partitioned_emt_status,
         :local_multirate_partitioned_emt,
     ) : partitioned_emt_status(backend, prepared)
+end
+
+function prepare_converter_system(study)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :prepare_converter_system,
+        :extended_converter_systems,
+    ) : prepare_converter_system(backend, study)
+end
+
+function advance_converter_system!(prepared, accepted_step_count::Integer=1)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :advance_converter_system,
+        :extended_converter_systems,
+    ) : advance_converter_system!(backend, prepared, accepted_step_count)
+end
+
+function execute_converter_system!(prepared)
+    backend = active_solver_backend()
+    return backend === nothing ?
+           _solver_unavailable_result(
+        :execute_converter_system,
+        :extended_converter_systems,
+    ) : execute_converter_system!(backend, prepared)
 end

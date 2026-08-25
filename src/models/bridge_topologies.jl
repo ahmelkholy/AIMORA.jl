@@ -19,11 +19,14 @@ export BridgeNode,
        full_bridge_topology,
        step_down_chopper_topology,
        step_up_chopper_topology,
+       inverting_buck_boost_topology,
        bidirectional_chopper_topology,
        neutral_point_clamped_leg_topology,
        t_type_leg_topology,
        flying_capacitor_leg_topology,
-       cascaded_h_bridge_phase_topology
+       cascaded_h_bridge_phase_topology,
+       matrix_converter_topology,
+       cycloconverter_topology
 
 const BRIDGE_TOPOLOGY_SCHEMA = :aimora_bridge_topology_v1
 const BRIDGE_FAMILIES = (
@@ -34,11 +37,14 @@ const BRIDGE_FAMILIES = (
     :full_bridge,
     :step_down_chopper,
     :step_up_chopper,
+    :inverting_buck_boost,
     :bidirectional_chopper,
     :neutral_point_clamped_leg,
     :t_type_leg,
     :flying_capacitor_leg,
     :cascaded_h_bridge_phase,
+    :matrix_converter,
+    :cycloconverter,
 )
 const BRIDGE_VALVE_CLASSES = (:diode, :thyristor, :self_commutated)
 const BRIDGE_PASSIVE_KINDS = (:conductance, :series_rl, :series_rlc, :capacitor)
@@ -550,6 +556,41 @@ function step_up_chopper_topology(
         BridgePassivePosition[], [group]; provenance)
 end
 
+function inverting_buck_boost_topology(
+    input_positive::Integer,
+    switching::Integer,
+    output_negative::Integer,
+    reference::Integer;
+    provenance::ParameterProvenance=
+        generic_bridge_topology_provenance(:inverting_buck_boost),
+)
+    nodes = [
+        _node(:input_positive, input_positive),
+        _node(:switching, switching),
+        _node(:output_negative, output_negative),
+        _node(:reference, reference),
+    ]
+    valves = [
+        _valve(:controlled, input_positive, switching, :self_commutated),
+        _valve(:inverting_diode, output_negative, switching, :diode),
+    ]
+    group = BridgeStateGroup(
+        :chopper_paths,
+        :admissible_gate_state,
+        [1],
+        [:charge, :transfer],
+        Bool[1 0],
+    )
+    return BridgeTopologyDescriptor(
+        :inverting_buck_boost,
+        nodes,
+        valves,
+        BridgePassivePosition[],
+        [group];
+        provenance,
+    )
+end
+
 function bidirectional_chopper_topology(
     dc_positive::Integer,
     output::Integer,
@@ -696,7 +737,7 @@ function t_type_leg_topology(
     valves = [
         _valve(:outer_upper, dc_positive, ac_terminal, :self_commutated),
         _valve(:midpoint_ac_side, ac_terminal, midpoint_path_node, :self_commutated),
-        _valve(:midpoint_dc_side, midpoint_path_node, midpoint, :self_commutated),
+        _valve(:midpoint_dc_side, midpoint, midpoint_path_node, :self_commutated),
         _valve(:outer_lower, ac_terminal, dc_negative, :self_commutated),
     ]
     states = Bool[
@@ -799,6 +840,202 @@ function cascaded_h_bridge_phase_topology(
     end
     return BridgeTopologyDescriptor(:cascaded_h_bridge_phase, nodes, valves,
         BridgePassivePosition[], groups; provenance)
+end
+
+function matrix_converter_topology(
+    input_nodes::NTuple{3,<:Integer},
+    output_nodes::NTuple{3,<:Integer};
+    provenance::ParameterProvenance=generic_bridge_topology_provenance(:matrix_converter),
+)
+    inputs = Int.(input_nodes)
+    outputs = Int.(output_nodes)
+    all(>=(0), (inputs..., outputs...)) &&
+        length(unique((inputs..., outputs...))) == 6 || throw(ArgumentError(
+        "matrix-converter input and output terminals must be six distinct nonnegative nodes",
+    ))
+    nodes = BridgeNode[
+        [_node(Symbol(:input_, phase), inputs[phase]) for phase in 1:3]...,
+        [_node(Symbol(:output_, phase), outputs[phase]) for phase in 1:3]...,
+    ]
+    valves = BridgeValvePosition[]
+    for output_phase in 1:3, input_phase in 1:3
+        connection = 3 * (output_phase - 1) + input_phase
+        push!(
+            valves,
+            _valve(
+                Symbol(:output_, output_phase, :_input_, input_phase, :_forward),
+                inputs[input_phase],
+                outputs[output_phase],
+                :self_commutated;
+                group=output_phase,
+                cell=connection,
+            ),
+            _valve(
+                Symbol(:output_, output_phase, :_input_, input_phase, :_reverse),
+                outputs[output_phase],
+                inputs[input_phase],
+                :self_commutated;
+                group=output_phase,
+                cell=connection,
+            ),
+        )
+    end
+    states = falses(length(valves), 27)
+    state_names = Symbol[]
+    column = 0
+    for input_for_output_1 in 1:3, input_for_output_2 in 1:3, input_for_output_3 in 1:3
+        column += 1
+        selected_inputs = (input_for_output_1, input_for_output_2, input_for_output_3)
+        for output_phase in 1:3
+            connection = 3 * (output_phase - 1) + selected_inputs[output_phase]
+            states[2 * connection - 1, column] = true
+            states[2 * connection, column] = true
+        end
+        push!(state_names, Symbol(:connection_, join(selected_inputs, :_)))
+    end
+    group = BridgeStateGroup(
+        :matrix_connection_states,
+        :admissible_gate_state,
+        collect(eachindex(valves)),
+        state_names,
+        states,
+    )
+    return BridgeTopologyDescriptor(
+        :matrix_converter,
+        nodes,
+        valves,
+        BridgePassivePosition[],
+        [group];
+        provenance,
+    )
+end
+
+function _cycloconverter_bridge_paths(first_position::Int)
+    paths = NTuple{2,Int}[]
+    for upper_phase in 1:3, lower_phase in 1:3
+        upper_phase == lower_phase && continue
+        push!(paths, (
+            first_position + 2 * upper_phase - 2,
+            first_position + 2 * lower_phase - 1,
+        ))
+    end
+    return paths
+end
+
+function _cycloconverter_state_group(
+    output_phase::Int,
+    positive_first::Int,
+    negative_first::Int,
+    circulating_current::Bool,
+)
+    positive_paths = _cycloconverter_bridge_paths(positive_first)
+    negative_paths = _cycloconverter_bridge_paths(negative_first)
+    positions = collect(positive_first:(negative_first + 5))
+    state_count = circulating_current ? 49 : 13
+    states = falses(length(positions), state_count)
+    names = Symbol[:blocked]
+    column = 1
+    function add_path!(prefix, positive_path, negative_path)
+        column += 1
+        positive_path === nothing || foreach(index -> states[index - positive_first + 1, column] = true, positive_path)
+        negative_path === nothing || foreach(index -> states[index - positive_first + 1, column] = true, negative_path)
+        push!(names, Symbol(prefix, :_, column - 1))
+    end
+    for path in positive_paths
+        add_path!(:positive, path, nothing)
+    end
+    for path in negative_paths
+        add_path!(:negative, nothing, path)
+    end
+    if circulating_current
+        for positive_path in positive_paths, negative_path in negative_paths
+            add_path!(:circulating, positive_path, negative_path)
+        end
+    end
+    return BridgeStateGroup(
+        Symbol(:output_, output_phase, :_bridge_group_states),
+        :admissible_gate_state,
+        positions,
+        names,
+        states,
+    )
+end
+
+function cycloconverter_topology(
+    input_nodes::NTuple{3,<:Integer},
+    output_nodes,
+    neutral_node::Integer;
+    circulating_current::Bool=false,
+    provenance::ParameterProvenance=generic_bridge_topology_provenance(:cycloconverter),
+)
+    inputs = Int.(input_nodes)
+    outputs = Tuple(Int.(output_nodes))
+    length(outputs) in (1, 3) || throw(ArgumentError(
+        "cycloconverter output must contain one or three phases",
+    ))
+    neutral = Int(neutral_node)
+    terminals = (inputs..., outputs..., neutral)
+    all(>=(0), terminals) && length(unique(terminals)) == length(terminals) ||
+        throw(ArgumentError("cycloconverter terminals must be distinct nonnegative nodes"))
+    nodes = BridgeNode[
+        [_node(Symbol(:input_, phase), inputs[phase]) for phase in 1:3]...,
+        [_node(Symbol(:output_, phase), outputs[phase]) for phase in eachindex(outputs)]...,
+        _node(:output_neutral, neutral),
+    ]
+    valves = BridgeValvePosition[]
+    groups = BridgeStateGroup[]
+    for output_phase in eachindex(outputs)
+        positive_first = length(valves) + 1
+        positive = _rectifier_valves(
+            inputs,
+            outputs[output_phase],
+            neutral,
+            :thyristor;
+            group=2 * output_phase - 1,
+        )
+        for valve in positive
+            push!(valves, BridgeValvePosition(
+                Symbol(:output_, output_phase, :_positive_, valve.name),
+                valve.from_node,
+                valve.to_node,
+                valve.valve_class;
+                group=2 * output_phase - 1,
+                cell=output_phase,
+            ))
+        end
+        negative_first = length(valves) + 1
+        negative = _rectifier_valves(
+            inputs,
+            neutral,
+            outputs[output_phase],
+            :thyristor;
+            group=2 * output_phase,
+        )
+        for valve in negative
+            push!(valves, BridgeValvePosition(
+                Symbol(:output_, output_phase, :_negative_, valve.name),
+                valve.from_node,
+                valve.to_node,
+                valve.valve_class;
+                group=2 * output_phase,
+                cell=output_phase,
+            ))
+        end
+        push!(groups, _cycloconverter_state_group(
+            output_phase,
+            positive_first,
+            negative_first,
+            circulating_current,
+        ))
+    end
+    return BridgeTopologyDescriptor(
+        :cycloconverter,
+        nodes,
+        valves,
+        BridgePassivePosition[],
+        groups;
+        provenance,
+    )
 end
 
 end
