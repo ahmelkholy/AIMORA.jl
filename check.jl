@@ -14,8 +14,10 @@ const REQUIRED_PATHS = (
     "src/io",
     "src/models",
     "src/solver_api/backend.jl",
+    "src/solver_api/worker.jl",
     "src/studies",
     "test/runtests.jl",
+    "test/study_worker_contracts.jl",
 )
 
 for relative_path in REQUIRED_PATHS
